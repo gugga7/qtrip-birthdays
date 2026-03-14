@@ -73,15 +73,15 @@ export interface NicheConfig {
   defaultGroupSize: number;
 }
 
-/* ── Bachelor / Bachelorette niche ── */
+/* ── Birthday Celebrations niche ── */
 
-export const bachelorConfig: NicheConfig = {
-  id: 'bachelor',
+export const birthdayConfig: NicheConfig = {
+  id: 'birthday',
   name: {
-    en: 'Bachelor & Bachelorette',
-    fr: 'Enterrement de Vie de Garçon/Fille',
+    en: 'Birthday Celebrations',
+    fr: 'Célébrations d\'Anniversaire',
   },
-  destinations: ['marrakech', 'marbella', 'faro'],
+  destinations: ['casablanca', 'marrakech'],
   features: {
     groupBooking: true,
     votingSystem: true,
@@ -92,44 +92,44 @@ export const bachelorConfig: NicheConfig = {
     aiSchedule: true,
   },
   theme: {
-    primary: 'pink',
-    accent: 'rose',
-    heroGradient: 'from-pink-500 via-rose-500 to-fuchsia-500',
-    ctaGradient: 'from-pink-500 to-rose-500',
+    primary: 'amber',
+    accent: 'orange',
+    heroGradient: 'from-amber-500 via-orange-500 to-rose-500',
+    ctaGradient: 'from-amber-500 to-orange-500',
     appName: 'QTRIP',
     tagline: {
-      en: 'Plan the ultimate celebration',
-      fr: 'Organisez la fête parfaite',
+      en: 'Celebrate in style',
+      fr: 'Célébrez avec panache',
     },
     description: {
-      en: 'Plan unforgettable bachelor & bachelorette trips to Marrakech, Marbella, and the Algarve.',
-      fr: 'Organisez des enterrements de vie de garçon et de jeune fille inoubliables à Marrakech, Marbella et en Algarve.',
+      en: 'Plan unforgettable birthday celebrations in Casablanca and Marrakech. Fine dining, rooftop parties, and cultural experiences.',
+      fr: 'Organisez des anniversaires inoubliables à Casablanca et Marrakech. Gastronomie, rooftops et expériences culturelles.',
     },
   },
   categories: [
-    'Party & Nightlife',
-    'Adventure & Outdoor',
-    'Wellness & Relaxation',
-    'Food & Drink',
+    'Fine Dining',
+    'Nightlife & Bars',
     'Culture & Sightseeing',
+    'Wellness & Spa',
     'Group Experiences',
+    'Food & Drink',
   ],
   categoryColors: {
-    'Party & Nightlife':     { bg: 'bg-fuchsia-50',  border: 'border-fuchsia-300', text: 'text-fuchsia-700', badge: 'bg-fuchsia-100 text-fuchsia-700', dot: 'bg-fuchsia-400', light: 'bg-fuchsia-50/60' },
-    'Adventure & Outdoor':   { bg: 'bg-orange-50',   border: 'border-orange-300',  text: 'text-orange-700',  badge: 'bg-orange-100 text-orange-700',   dot: 'bg-orange-400',  light: 'bg-orange-50/60' },
-    'Wellness & Relaxation': { bg: 'bg-teal-50',     border: 'border-teal-300',    text: 'text-teal-700',    badge: 'bg-teal-100 text-teal-700',       dot: 'bg-teal-400',    light: 'bg-teal-50/60' },
-    'Food & Drink':          { bg: 'bg-rose-50',     border: 'border-rose-300',    text: 'text-rose-700',    badge: 'bg-rose-100 text-rose-700',       dot: 'bg-rose-400',    light: 'bg-rose-50/60' },
-    'Culture & Sightseeing': { bg: 'bg-amber-50',    border: 'border-amber-300',   text: 'text-amber-700',   badge: 'bg-amber-100 text-amber-700',     dot: 'bg-amber-400',   light: 'bg-amber-50/60' },
-    'Group Experiences':     { bg: 'bg-violet-50',   border: 'border-violet-300',  text: 'text-violet-700',  badge: 'bg-violet-100 text-violet-700',   dot: 'bg-violet-400',  light: 'bg-violet-50/60' },
+    'Fine Dining':           { bg: 'bg-amber-50',   border: 'border-amber-300',   text: 'text-amber-700',   badge: 'bg-amber-100 text-amber-700',     dot: 'bg-amber-400',   light: 'bg-amber-50/60' },
+    'Nightlife & Bars':      { bg: 'bg-fuchsia-50', border: 'border-fuchsia-300', text: 'text-fuchsia-700', badge: 'bg-fuchsia-100 text-fuchsia-700', dot: 'bg-fuchsia-400', light: 'bg-fuchsia-50/60' },
+    'Culture & Sightseeing': { bg: 'bg-violet-50',  border: 'border-violet-300',  text: 'text-violet-700',  badge: 'bg-violet-100 text-violet-700',   dot: 'bg-violet-400',  light: 'bg-violet-50/60' },
+    'Wellness & Spa':        { bg: 'bg-teal-50',    border: 'border-teal-300',    text: 'text-teal-700',    badge: 'bg-teal-100 text-teal-700',       dot: 'bg-teal-400',    light: 'bg-teal-50/60' },
+    'Group Experiences':     { bg: 'bg-orange-50',   border: 'border-orange-300',  text: 'text-orange-700',  badge: 'bg-orange-100 text-orange-700',   dot: 'bg-orange-400',  light: 'bg-orange-50/60' },
+    'Food & Drink':          { bg: 'bg-rose-50',    border: 'border-rose-300',    text: 'text-rose-700',    badge: 'bg-rose-100 text-rose-700',       dot: 'bg-rose-400',    light: 'bg-rose-50/60' },
   },
   defaultCurrency: 'EUR',
   supportedLanguages: ['en', 'fr'],
   defaultLanguage: 'en',
-  minGroupSize: 4,
-  defaultGroupSize: 8,
+  minGroupSize: 2,
+  defaultGroupSize: 6,
 };
 
 /* ── Active niche ── */
 // Change this to switch niches. In the future this could come from
 // an env variable, subdomain detection, or a database lookup.
-export const activeNiche: NicheConfig = bachelorConfig;
+export const activeNiche: NicheConfig = birthdayConfig;
