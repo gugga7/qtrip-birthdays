@@ -1,6 +1,8 @@
 # AI-Powered Schedule Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+>
+> **Security note:** This document is historical implementation planning only. The live QTRIP flow must keep the KIMI key in managed secrets, require authenticated requests, avoid wildcard CORS, and enforce server-side logging plus usage limits.
 
 **Goal:** Auto-suggest an optimized trip schedule via Kimi API (Supabase Edge Function) with a magical animated reveal and full manual override.
 
@@ -29,14 +31,10 @@ Create `supabase/functions/ai-schedule/index.ts`:
 import "https://deno.land/x/xhr@0.3.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const KIMI_API_KEY = Deno.env.get("KIMI_API_KEY");
 const KIMI_BASE_URL = "https://api.moonshot.ai/v1";
 const KIMI_MODEL = "kimi-k2-turbo-preview";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Current production guidance: require verified JWTs, allow only trusted origins,
+// and keep request logging plus rate limits on the server-side gateway.
 
 interface ActivityInput {
   id: string;
@@ -280,10 +278,7 @@ export async function fetchAISchedule(
   accommodation: AccommodationType | null,
   transport: TransportType | null,
 ): Promise<ScheduleAssignment[]> {
-  const functionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-  if (!functionsUrl || !anonKey) {
+  if (!isSupabaseConfigured) {
     throw new Error('Missing Supabase configuration');
   }
 
@@ -318,22 +313,15 @@ export async function fetchAISchedule(
     }),
   };
 
-  const response = await fetch(`${functionsUrl}/ai-schedule`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${anonKey}`,
-      apikey: anonKey,
-    },
-    body: JSON.stringify(body),
-  });
+  const { data, error } = await supabase.functions.invoke<{ assignments: ScheduleAssignment[] }>(
+    'ai-schedule',
+    { body },
+  );
 
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(err.error || `HTTP ${response.status}`);
+  if (error) {
+    throw error;
   }
 
-  const data = await response.json();
   return data.assignments as ScheduleAssignment[];
 }
 ```
@@ -384,10 +372,6 @@ export function useAISchedule(dayCount: number) {
   const [revealedCount, setRevealedCount] = useState(0);
   const [assignments, setAssignments] = useState<ScheduleAssignment[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const hasRun = useRef(false);
-  const retryCount = useRef(0);
-
-  const allScheduled = selectedActivities.every((a) => a.scheduled);
 
   const generate = useCallback(async () => {
     if (!selectedDestination || selectedActivities.length === 0 || dayCount === 0) return;
@@ -425,39 +409,15 @@ export function useAISchedule(dayCount: number) {
       }
 
       setPhase('done');
-    } catch (err: any) {
+    } catch (err: unknown) {
       clearInterval(msgInterval);
-
-      // One automatic retry
-      if (retryCount.current < 1) {
-        retryCount.current++;
-        generate();
-        return;
-      }
-
-      setError(err.message || 'Failed to generate schedule');
+      setError(err instanceof Error ? err.message : 'Failed to generate schedule');
       setPhase('error');
     }
   }, [selectedDestination, selectedActivities, selectedAccommodation, selectedTransport, dayCount, scheduleActivity]);
 
-  // Auto-trigger on first mount if nothing is scheduled
-  useEffect(() => {
-    if (!hasRun.current && !allScheduled && selectedActivities.length > 0) {
-      hasRun.current = true;
-      generate();
-    }
-  }, [allScheduled, selectedActivities.length, generate]);
-
   const retry = useCallback(() => {
-    retryCount.current = 0;
-    hasRun.current = true;
-    // Unschedule all first
-    for (const a of selectedActivities) {
-      if (a.scheduled) {
-        useTripStore.getState().unscheduleActivity(a.id);
-      }
-    }
-    generate();
+    void generate();
   }, [generate, selectedActivities]);
 
   return {
@@ -802,13 +762,13 @@ git commit -m "feat: rewrite Schedule page with AI auto-suggest and animated rev
 
 ```bash
 cd /Users/Shared/proj-backups/QTRIP
-echo "KIMI_API_KEY=<ROTATED-KIMI-KEY>" | npx supabase secrets set --env-file /dev/stdin 2>/dev/null || echo "Will set secret when Supabase is running"
+echo "KIMI_API_KEY=<rotate-and-set-in-secret-manager>" | npx supabase secrets set --env-file /dev/stdin 2>/dev/null || echo "Will set secret when Supabase is running"
 ```
 
 Note: If local Supabase isn't running, the secret can be set via env file. For local dev, create `supabase/.env` with:
 
 ```
-KIMI_API_KEY=<ROTATED-KIMI-KEY>
+KIMI_API_KEY=<rotate-and-set-in-secret-manager>
 ```
 
 **Step 2: Start local Supabase (if not running)**
@@ -820,7 +780,7 @@ npx supabase start
 **Step 3: Serve the edge function locally**
 
 ```bash
-npx supabase functions serve ai-schedule --env-file supabase/.env --no-verify-jwt
+npx supabase functions serve ai-schedule --env-file supabase/.env
 ```
 
 This starts the function at `http://127.0.0.1:56321/functions/v1/ai-schedule`.
@@ -849,7 +809,7 @@ Expected: JSON response with `{"assignments": [{activityId, day, slot}, ...]}`.
 Create `supabase/.env` (add to .gitignore if not already):
 
 ```
-KIMI_API_KEY=<ROTATED-KIMI-KEY>
+KIMI_API_KEY=<rotate-and-set-in-secret-manager>
 ```
 
 Ensure `supabase/.env` is in `.gitignore`:
@@ -878,7 +838,7 @@ npx supabase start
 
 Terminal 2:
 ```bash
-npx supabase functions serve ai-schedule --env-file supabase/.env --no-verify-jwt
+npx supabase functions serve ai-schedule --env-file supabase/.env
 ```
 
 Terminal 3:
@@ -893,11 +853,12 @@ npm run dev
 3. Continue to Activities, select both Marrakech activities
 4. Continue through Transport and Accommodation (select options)
 5. Arrive at Schedule page
-6. **Observe**: Thinking card appears with cycling messages
-7. **Observe**: Activities animate into their slots one by one
-8. **Observe**: Success banner appears with "Re-suggest" button
-9. **Test**: Manually change a day/slot dropdown — it should work normally
-10. **Test**: Click "Re-suggest" — it should clear and re-generate
+6. Sign in if prompted, then click the explicit AI generate button
+7. **Observe**: Thinking card appears with cycling messages
+8. **Observe**: Activities animate into their slots one by one
+9. **Observe**: Success banner appears with "Re-suggest" button
+10. **Test**: Manually change a day/slot dropdown — it should work normally
+11. **Test**: Click "Re-suggest" — it should clear and re-generate
 11. Continue to Review — verify scheduled activities show their day/slot
 
 **Step 3: Final commit**

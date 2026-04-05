@@ -1,3 +1,5 @@
+import { FunctionsHttpError } from '@supabase/supabase-js';
+import { isSupabaseConfigured, supabase } from './supabase';
 import type { Activity, AccommodationType, Destination, TransportType, ScheduleSlotName } from './types';
 
 export interface ScheduleAssignment {
@@ -30,10 +32,7 @@ export async function fetchAISchedule(
   accommodation: AccommodationType | null,
   transport: TransportType | null,
 ): Promise<ScheduleAssignment[]> {
-  const functionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-  if (!functionsUrl || !anonKey) {
+  if (!isSupabaseConfigured) {
     throw new Error('Missing Supabase configuration');
   }
 
@@ -68,24 +67,21 @@ export async function fetchAISchedule(
     }),
   };
 
-  const response = await fetch(`${functionsUrl}/ai-schedule`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${anonKey}`,
-      apikey: anonKey,
-    },
-    body: JSON.stringify(body),
-  });
+  const { data, error } = await supabase.functions.invoke<{ assignments: ScheduleAssignment[] }>(
+    'ai-schedule',
+    { body },
+  );
 
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(err.error || `HTTP ${response.status}`);
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      const err = await error.context.json().catch(() => ({ error: error.message }));
+      throw new Error(err.error || error.message);
+    }
+
+    throw new Error(error.message || 'Failed to generate schedule');
   }
 
-  const data = await response.json();
-
-  if (!Array.isArray(data.assignments)) {
+  if (!data || !Array.isArray(data.assignments)) {
     throw new Error('Invalid response: assignments missing');
   }
 

@@ -21,13 +21,19 @@ export function useAISchedule(dayCount: number) {
   const [revealedCount, setRevealedCount] = useState(0);
   const [assignments, setAssignments] = useState<ScheduleAssignment[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const hasRun = useRef(false);
   const activeGeneration = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const dayCountRef = useRef(dayCount);
   dayCountRef.current = dayCount;
 
-  const allScheduled = selectedActivities.every((a) => a.scheduled);
+  const clearScheduledActivities = useCallback(() => {
+    const store = useTripStore.getState();
+    for (const activity of store.selectedActivities) {
+      if (activity.scheduled) {
+        store.unscheduleActivity(activity.id);
+      }
+    }
+  }, []);
 
   const generate = useCallback(async () => {
     const store = useTripStore.getState();
@@ -43,6 +49,7 @@ export function useAISchedule(dayCount: number) {
 
     setPhase('thinking');
     setError(null);
+    setThinkingMessage(THINKING_MESSAGES[0]);
     setRevealedCount(0);
     setAssignments([]);
 
@@ -65,6 +72,7 @@ export function useAISchedule(dayCount: number) {
       if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
       if (isStale()) return;
 
+      clearScheduledActivities();
       setAssignments(result);
       setPhase('revealing');
 
@@ -79,14 +87,14 @@ export function useAISchedule(dayCount: number) {
       if (!isStale()) {
         setPhase('done');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
       if (isStale()) return;
 
-      setError(err.message || 'Failed to generate schedule');
+      setError(err instanceof Error ? err.message : 'Failed to generate schedule');
       setPhase('error');
     }
-  }, []);
+  }, [clearScheduledActivities]);
 
   // Cleanup interval on unmount
   useEffect(() => {
@@ -95,23 +103,8 @@ export function useAISchedule(dayCount: number) {
     };
   }, []);
 
-  // Auto-trigger once on mount if nothing is scheduled
-  useEffect(() => {
-    if (!hasRun.current && !allScheduled && selectedActivities.length > 0) {
-      hasRun.current = true;
-      generate();
-    }
-  }, [allScheduled, selectedActivities.length, generate]);
-
   const retry = useCallback(() => {
-    hasRun.current = true;
-    const store = useTripStore.getState();
-    for (const a of store.selectedActivities) {
-      if (a.scheduled) {
-        store.unscheduleActivity(a.id);
-      }
-    }
-    generate();
+    void generate();
   }, [generate]);
 
   return {
@@ -120,6 +113,7 @@ export function useAISchedule(dayCount: number) {
     revealedCount,
     assignments,
     error,
+    generate,
     retry,
     totalActivities: selectedActivities.length,
   };

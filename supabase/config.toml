@@ -272,7 +272,7 @@ inspector_port = 8183
 
 [functions.ai-schedule]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-email]
 enabled = true

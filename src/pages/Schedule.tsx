@@ -2,9 +2,11 @@ import { CalendarRange, Check, Clock, MapPin, RotateCcw, Sparkles, Sunrise, Sun,
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { FloatingContinueButton } from '../components/FloatingContinueButton';
 import { useAISchedule } from '../hooks/useAISchedule';
 import { useFeature } from '../hooks/useNiche';
+import { useAuth } from '../lib/auth';
 import type { Activity, ScheduleSlotName } from '../lib/types';
 import { useTripStore } from '../store/tripStore';
 import { tc } from '../config/themeClasses';
@@ -93,7 +95,7 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
       className="flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3"
     >
       <p className="text-sm text-amber-800">
-        {t('schedule.suggestError')}{' '}
+        {message || t('schedule.suggestError')}{' '}
         <button onClick={onRetry} className="font-medium underline">
           {t('common.retry')}
         </button>.
@@ -362,6 +364,8 @@ function DayPreview({ dayNumber, items, revealingDay }: { dayNumber: number; ite
 /* ── Main Schedule page ── */
 export function Schedule({ onNext, onBack }: ScheduleProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const aiEnabled = useFeature('aiSchedule');
   const { startDate, endDate, selectedActivities, scheduleActivity, unscheduleActivity } = useTripStore();
   const dayCount = useMemo(() => {
@@ -370,7 +374,9 @@ export function Schedule({ onNext, onBack }: ScheduleProps) {
     return Math.max(Math.ceil(diff / (1000 * 60 * 60 * 24)), 1);
   }, [endDate, selectedActivities.length, startDate]);
 
-  const { phase, thinkingMessage, revealedCount, assignments, error, retry } = useAISchedule(aiEnabled ? dayCount : 0);
+  const { phase, thinkingMessage, revealedCount, assignments, error, generate } = useAISchedule(aiEnabled ? dayCount : 0);
+  const isGenerating = phase === 'thinking' || phase === 'revealing';
+  const hasAISchedule = assignments.length > 0 || phase === 'done';
 
   // Build a map of activityId → reason from AI assignments
   const reasonMap = useMemo(() => {
@@ -421,6 +427,15 @@ export function Schedule({ onNext, onBack }: ScheduleProps) {
     if (revealingDay > 0) scrollToDay(revealingDay);
   }, [revealingDay, scrollToDay]);
 
+  const handleGenerate = useCallback(() => {
+    if (!user) {
+      navigate('/login', { state: { from: { pathname: '/schedule' } } });
+      return;
+    }
+
+    void generate();
+  }, [generate, navigate, user]);
+
   const validationMessages = selectedActivities.every((a) => a.scheduled)
     ? []
     : [t('schedule.assignAll')];
@@ -449,6 +464,33 @@ export function Schedule({ onNext, onBack }: ScheduleProps) {
         <p className="mt-2 max-w-2xl text-sm text-slate-500">
           {t('schedule.subtitle')}
         </p>
+        {aiEnabled && (
+          <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
+                {user ? t('schedule.aiActionTitle') : t('schedule.aiAuthTitle')}
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                {user ? t('schedule.aiActionDescription') : t('schedule.aiAuthDescription')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${user ? `bg-slate-900 hover:bg-slate-800` : `${tc.btnGradient} ${tc.btnGradientHover}`}`}
+            >
+              <Wand2 size={16} />
+              {user
+                ? (isGenerating
+                  ? t('schedule.generating')
+                  : hasAISchedule
+                  ? t('schedule.reSuggest')
+                  : t('schedule.generate'))
+                : t('schedule.signInToGenerate')}
+            </button>
+          </div>
+        )}
       </section>
 
       {/* AI status banners */}
@@ -458,10 +500,10 @@ export function Schedule({ onNext, onBack }: ScheduleProps) {
             <ThinkingCard key="thinking" message={thinkingMessage} />
           )}
           {phase === 'done' && (
-            <SuccessBanner key="success" onResuggest={retry} />
+            <SuccessBanner key="success" onResuggest={handleGenerate} />
           )}
           {phase === 'error' && (
-            <ErrorBanner key="error" message={error || 'Unknown error'} onRetry={retry} />
+            <ErrorBanner key="error" message={error || 'Unknown error'} onRetry={handleGenerate} />
           )}
         </AnimatePresence>
       )}
